@@ -8,7 +8,7 @@ using System.Text;
 
 // Note: Please be careful when modifying this because it could break existing components!
 
-namespace VeninethTrainer
+namespace DeathloopTrainer
 {
     using OffsetT = Int32;
 

@@ -1,76 +1,76 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Media;
 
-namespace VeninethTrainer
+namespace DeathloopTrainer
 {
     public partial class MainWindow : Window
     {
+
         globalKeyboardHook kbHook = new globalKeyboardHook();
         Timer updateTimer;
         Process game;
         public bool hooked = false;
-        //DeepPointer cheatManagerDP, capsuleDP, charMoveCompDP, playerControllerDP, playerCharacterDP, worldDP, gameModeDP, worldSettingsDP;
-        DeepPointer sphereDP = new DeepPointer(0x02F6BA98, 0x0, 0xE8, 0x398, 0x0);
-        DeepPointer gravityDP = new DeepPointer("PhysX3_x64.dll", 0x191434);
-        DeepPointer characterControllerDP = new DeepPointer(0x02F6C030, 0x30, 0x0);
-        DeepPointer worldSettingsDP = new DeepPointer(0x02F8AB60, 0x30, 0x240, 0x0);
 
-        IntPtr xVelPtr, yVelPtr, zVelPtr, xPosPtr, yPosPtr, zPosPtr, gameSpeedPtr, gravityPtr, hLookPtr, vLookPtr;
-        byte[] gravityCode = new byte[5] { 0xF3, 0x0F, 0x11, 0x69, 0x08 };
-        byte[] gravityNop = new byte[5] { 0x90, 0x90, 0x90, 0x90, 0x90 };
+        DeepPointer characterDP = new DeepPointer(0x02D5F688, 0x8, 0x8, 0x98, 0xA0, 0x1F0, 0x0);
+        DeepPointer statusDP = new DeepPointer(0x900);
 
-        double forward, side = 0;
+        IntPtr xVelPtr, yVelPtr, zVelPtr, xPosPtr, yPosPtr, zPosPtr, godPtr, ammoPtr;
 
-
-        private void gameSpeedBtn_Click(object sender, RoutedEventArgs e)
-        {
-            ChangeGameSpeed();
-        }
-
-        private void teleBtn_Click(object sender, RoutedEventArgs e)
-        {
-            Teleport();
-        }
-
-        private void saveBtn_Click(object sender, RoutedEventArgs e)
-        {
-            StorePosition();
-        }
-
-        private void noclipBtn_Click(object sender, RoutedEventArgs e)
-        {
-            ToggleNoclip();
-        }
-
-
-        float xVel, yVel, zVel, xPos, yPos, zPos, vLook, hLook, gameSpeed, prefGameSpeed;
-        bool ghost, god, noclip;
-        int charLFS;
+        bool god, ammo, teleFw = false;
         float[] storedPos = new float[5] { 0f, 0f, 0f, 0f, 0f };
 
+
+        float xVel, yVel, zVel, xPos, yPos, zPos;
+
+		private void teleportFwBtn_Click(object sender, RoutedEventArgs e)
+		{
+            e.Handled = true;
+            TeleportForward();
+		}
+
+		private void godModeBtn_Click(object sender, RoutedEventArgs e)
+		{
+            e.Handled = true;
+            ToggleGod();
+		}
+
+		private void ammoBtn_Click(object sender, RoutedEventArgs e)
+		{
+            e.Handled = true;
+            ToggleAmmo();
+		}
+
+		private void saveBtn_Click(object sender, RoutedEventArgs e)
+		{
+            e.Handled = true;
+            StorePosition();
+		}
+
+		private void teleBtn_Click(object sender, RoutedEventArgs e)
+		{
+            e.Handled = true;
+            Teleport();
+		}
 
         public MainWindow()
         {
             InitializeComponent();
-
             kbHook.KeyDown += InputKeyDown;
             kbHook.KeyUp += InputKeyUp;
             kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F1);
-            kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F4);
+            kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F2);
+            kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F3);
             kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F5);
             kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F6);
 
-            prefGameSpeed = 1.0f;
-
             updateTimer = new Timer
             {
-                Interval = (16) // ~60 Hz
+                Interval = 16 // ~60 Hz
             };
             updateTimer.Tick += new EventHandler(Update);
             updateTimer.Start();
@@ -96,6 +96,8 @@ namespace VeninethTrainer
                 return;
             }
 
+            Debug.WriteLine(game.Modules.Count);
+
             game.ReadValue<float>(xPosPtr, out xPos);
             game.ReadValue<float>(yPosPtr, out yPos);
             game.ReadValue<float>(zPosPtr, out zPos);
@@ -103,53 +105,27 @@ namespace VeninethTrainer
             game.ReadValue<float>(xVelPtr, out xVel);
             game.ReadValue<float>(yVelPtr, out yVel);
             game.ReadValue<float>(zVelPtr, out zVel);
-            double hVel = Math.Floor(Math.Sqrt(xVel * xVel + yVel * yVel) + 0.5f) / 100;
+            double hVel = (Math.Sqrt(xVel * xVel + yVel * yVel));
 
-            game.ReadValue<float>(vLookPtr, out vLook);
-            game.ReadValue<float>(hLookPtr, out hLook);
-
-            game.ReadValue<float>(gameSpeedPtr, out gameSpeed);
+            game.ReadValue<bool>(godPtr, out god);
+            game.ReadValue<bool>(ammoPtr, out ammo);
 
 
-            SetLabel(noclip, noclipLabel);
+            SetLabel(god, godModeLabel);
+            SetLabel(ammo, ammoLabel);
 
-            SetGameSpeed();
 
-            gameSpeedLabel.Content = prefGameSpeed.ToString("0.0") + "x";
-
-            positionBlock.Text = (xPos / 100).ToString("0.00") + "\n" + (yPos / 100).ToString("0.00") + "\n" + (zPos / 100).ToString("0.00");
+            positionBlock.Text = (xPos).ToString("0.00") + "\n" + (yPos).ToString("0.00") + "\n" + (zPos).ToString("0.00");
             speedBlock.Text = hVel.ToString("0.00") + " m/s";
-
-            if (noclip)
+            if(teleFw)
             {
-                double radian = (double)hLook * (Math.PI / 180);
-                Vector direction = new Vector(Math.Cos(radian), Math.Sin(radian));
-                Debug.WriteLine("{0}, {1}", forward, side);
-                Vector inputVector = new Vector((double)side, (double)forward);
-                if(inputVector.Length > 1)
-                    inputVector.Normalize();
-
-                Debug.WriteLine(inputVector);
-                float newXVel = (float)direction.X * (float)inputVector.Y * 5000;
-                float newYVel = (float)direction.Y * (float)inputVector.Y * 5000;
-
-                Debug.WriteLine("XVEL {0}, YVEL {1}", newXVel, newYVel);
-
-
-                radian = (double)vLook * (Math.PI / 180);
-                direction = new Vector(Math.Cos(radian), Math.Sin(radian));
-                Debug.WriteLine("up vector: " + direction);
-                float newZVel = (float)(direction.Y * forward * 10000);
-                game.WriteBytes(zVelPtr, BitConverter.GetBytes(newZVel));
-                float nonUpMultiplier = 1f - Math.Abs((float)direction.Y);
-                game.WriteBytes(xVelPtr, BitConverter.GetBytes(newXVel*nonUpMultiplier));
-                game.WriteBytes(yVelPtr, BitConverter.GetBytes(newYVel*nonUpMultiplier));
-            }
+                TeleportForward();
+			}
         }
 
         private bool Hook()
         {
-            List<Process> processList = Process.GetProcesses().ToList().FindAll(x => x.ProcessName.Contains("Game-Win64-Shipping"));
+            List<Process> processList = Process.GetProcesses().ToList().FindAll(x => x.ProcessName == "Deathloop");
             if (processList.Count == 0)
             {
                 game = null;
@@ -160,29 +136,49 @@ namespace VeninethTrainer
             if (game.HasExited)
                 return false;
 
-            return true;
+            try
+            {
+                if (game.Modules.Count < 110)
+                    return false;
+            }
+            catch
+            {
+                return false;
+			}
+
+            if(new DeepPointer(0x900).Deref<byte>(game, out byte statusByte))
+            {
+                Debug.WriteLine(statusByte);
+                if(statusByte != (byte)0x1)
+                {
+                    bool success = false;
+                    while(!success)
+                    {
+                        Debug.WriteLine("attempting to write function hooks");
+                        success = WriteFunctionHooks();
+					}
+				}
+                return true;
+			}
+            return false;
         }
 
 
 
         private void DerefPointers()
         {
-            sphereDP.DerefOffsets(game, out IntPtr basePtr);
-            xPosPtr = basePtr + 0xA0;
-            yPosPtr = basePtr + 0xA4;
-            zPosPtr = basePtr + 0xA8;
-            xVelPtr = basePtr + 0xD0;
-            yVelPtr = basePtr + 0xD4;
-            zVelPtr = basePtr + 0xD8;
-            gravityDP.DerefOffsets(game, out gravityPtr);
+            characterDP.DerefOffsets(game, out IntPtr basePtr);
+            xPosPtr = basePtr + 0x80;
+            yPosPtr = basePtr + 0x84;
+            zPosPtr = basePtr + 0x88;
+            xVelPtr = basePtr + 0xB0;
+            yVelPtr = basePtr + 0xB4;
+            zVelPtr = basePtr + 0xB8;
 
-            characterControllerDP.DerefOffsets(game, out IntPtr characterControllerPtr);
-            vLookPtr = characterControllerPtr + 0x2A8;
-            hLookPtr = characterControllerPtr + 0x2AC;
+            statusDP.DerefOffsets(game, out IntPtr statusBasePtr);
+            godPtr = statusBasePtr + 0x10;
+            ammoPtr = statusBasePtr + 0x20;
 
-
-            worldSettingsDP.DerefOffsets(game, out IntPtr worldSettingsPtr);
-            gameSpeedPtr = worldSettingsPtr + 0x308;
         }
 
         private void InputKeyDown(object sender, KeyEventArgs e)
@@ -190,10 +186,13 @@ namespace VeninethTrainer
             switch (e.KeyCode)
             {
                 case Keys.F1:
-                    ToggleNoclip();
+                    teleFw = true;
                     break;
-                case Keys.F4:
-                    ChangeGameSpeed();
+                case Keys.F2:
+                    ToggleGod();
+                    break;
+                case Keys.F3:
+                    ToggleAmmo();
                     break;
                 case Keys.F5:
                     StorePosition();
@@ -201,48 +200,61 @@ namespace VeninethTrainer
                 case Keys.F6:
                     Teleport();
                     break;
-                case Keys.W:
-                    forward = 1;
-                    break;
                 default:
                     break;
             }
             e.Handled = true;
         }
 
-        private void ToggleNoclip()
-        {
-            noclip = !noclip;
-            if (noclip)
-            {
-                game.WriteBytes(gravityPtr, gravityNop);
-                kbHook.HookedKeys.Add(System.Windows.Forms.Keys.W);
-            }
-            else
-            {
-                kbHook.HookedKeys.Remove(System.Windows.Forms.Keys.W);
-                game.WriteBytes(gravityPtr, gravityCode);
-            }
+		private void ToggleAmmo()
+		{
+            if (!hooked)
+                return;
 
+            game.WriteValue<bool>(ammoPtr, !ammo);
         }
 
+		private void ToggleGod()
+		{
+            if (!hooked)
+                return;
 
-        private void Teleport()
+            game.WriteValue<bool>(godPtr, !god);
+        }
+
+		private void TeleportForward()
+		{
+            if (!hooked)
+                return;
+
+            float a = new DeepPointer(0x3283134).Deref<float>(game);
+            float b = new DeepPointer(0x3283138).Deref<float>(game);
+            System.Windows.Media.Media3D.Quaternion q = new System.Windows.Media.Media3D.Quaternion(0, b, 0, a);
+            float angle = ((float)((q.Angle / 2) * -q.Axis.Y));
+            angle = (float)(angle / 180 * Math.PI);
+
+            double x = 0, y = 0;
+            x += Math.Sin(angle + Math.PI / 2) * 1;
+            y += Math.Cos(angle + Math.PI / 2) * 1;
+            Debug.WriteLine(x + ", " + y);
+            float scale = 1f;
+
+            game.WriteBytes(xPosPtr, BitConverter.GetBytes((float)(xPos + (float)(x * scale * 1))));
+            game.WriteBytes(yPosPtr, BitConverter.GetBytes((float)(yPos + (float)(y * scale * 1))));
+        }
+
+		private void Teleport()
         {
+            if (!hooked)
+                return;
             game.WriteBytes(xPosPtr, BitConverter.GetBytes(storedPos[0]));
             game.WriteBytes(yPosPtr, BitConverter.GetBytes(storedPos[1]));
             game.WriteBytes(zPosPtr, BitConverter.GetBytes(storedPos[2]));
 
-            game.WriteBytes(vLookPtr, BitConverter.GetBytes(storedPos[3]));
-            game.WriteBytes(hLookPtr, BitConverter.GetBytes(storedPos[4]));
-
             game.WriteBytes(xVelPtr, BitConverter.GetBytes(0f));
             game.WriteBytes(yVelPtr, BitConverter.GetBytes(0f));
             game.WriteBytes(zVelPtr, BitConverter.GetBytes(0f));
-
         }
-
-
 
         private void SetLabel(bool state, System.Windows.Controls.Label label)
         {
@@ -260,56 +272,162 @@ namespace VeninethTrainer
 
         private void StorePosition()
         {
-            storedPos = new float[5] { xPos, yPos, zPos, vLook, hLook };
+            if (!hooked)
+                return;
+            storedPos = new float[3] { xPos, yPos, zPos };
+            return;
         }
 
         private void InputKeyUp(object sender, KeyEventArgs e)
         {
             switch (e.KeyCode)
             {
-                case Keys.W:
-                    forward = 0;
-                    break;
-                case Keys.S:
-                    forward = 0;
-                    break;
-                case Keys.A:
-                    side = 0;
-                    break;
-                case Keys.D:
-                    side = 0;
+                case Keys.F1:
+                    teleFw = false;
                     break;
             }
             e.Handled = true;
         }
 
-        private void ChangeGameSpeed()
+        private bool WriteFunctionHooks()
         {
-            switch (prefGameSpeed)
+            SignatureScanner scanner = new SignatureScanner(game, game.MainModule.BaseAddress, (int)game.MainModule.ModuleMemorySize);
+
+            SigScanTarget antiDebugSig = new SigScanTarget("FF 50 38 88 44 24 70 E8 ?? ?? ?? ?? 0F B6 C0 83 F8 01 0F 85 ?? ?? ?? ?? C7 84 24 F8 01 00 00 3C 00 00 00");
+            IntPtr antiDbgPtr = scanner.Scan(antiDebugSig);
+            if(antiDbgPtr != IntPtr.Zero)
             {
-                case 1.0f:
-                    prefGameSpeed = 2.0f;
-                    break;
-                case 2.0f:
-                    prefGameSpeed = 4.0f;
-                    break;
-                case 4.0f:
-                    prefGameSpeed = 0.5f;
-                    break;
-                case 0.5f:
-                    prefGameSpeed = 1.0f;
-                    break;
-                default:
-                    prefGameSpeed = 1.0f;
-                    break;
+                game.WriteBytes(antiDbgPtr, StringToByteArray("B0 01 90"));
+			}
+
+
+            SigScanTarget getPlayerSig = new SigScanTarget("?? ?? ?? ?? ?? 48 83 C4 20 5F C3 83 FB 03");
+
+            IntPtr getPlayerPtr = IntPtr.Zero;
+            getPlayerPtr = scanner.Scan(getPlayerSig);
+            if(getPlayerPtr == IntPtr.Zero)
+            {
+                throw new Exception("Can't Find GetPlayer Signature");
+			}
+
+            _ = new DeepPointer(0x900).DerefOffsets(game, out IntPtr statusPtr);
+            IntPtr godModePtr = statusPtr + 0x10;
+            IntPtr ammoInfPtr = statusPtr + 0x20;
+            _ = new DeepPointer(0x500).DerefOffsets(game, out IntPtr newGetPlayerPtr);
+            _ = new DeepPointer(0x800).DerefOffsets(game, out IntPtr playerPtr);
+            byte[] newGetPlayerCode = StringToByteArray("48 A3 " + IntPtrToASMString(playerPtr)
+                                                        + " 48 8B 74 24 40");
+  
+            game.WriteBytes(newGetPlayerPtr, newGetPlayerCode);
+
+            long jumpOffset = getPlayerPtr.ToInt64() - newGetPlayerPtr.ToInt64() - newGetPlayerCode.Length;
+            byte[] jumpCode = StringToByteArray("E9 " + IntPtrToASMString(new IntPtr(jumpOffset), 4));
+            game.WriteBytes(newGetPlayerPtr + newGetPlayerCode.Length, jumpCode);
+
+            jumpOffset = newGetPlayerPtr.ToInt64() - getPlayerPtr.ToInt64() - 0x5;
+            jumpCode = jumpCode = StringToByteArray("E9 " + IntPtrToASMString(new IntPtr((uint)jumpOffset), 4));
+
+            game.WriteBytes(getPlayerPtr, jumpCode);
+
+
+            SigScanTarget applyDamageSig = new SigScanTarget("?? ?? ?? ?? ?? ?? ?? 0F 28 C1 75 ?? 80 B9");
+            IntPtr applyDamagePtr = scanner.Scan(applyDamageSig);
+            if (applyDamagePtr == IntPtr.Zero)
+            {
+                throw new Exception("Can't Find ApplyDamage Signature");
             }
+
+            _ = new DeepPointer(0x550).DerefOffsets(game, out IntPtr newApplyDamagePtr);
+            jumpOffset = godModePtr.ToInt64() - newApplyDamagePtr.ToInt64() - 0x9;
+            byte[] newApplyDamageCode = StringToByteArray("53 52 48 8B 1D " + IntPtrToASMString(new IntPtr(jumpOffset), 4) +
+                                                          " 48 83 FB 01 75 11 48 8B 59 70 48 BA " + IntPtrToASMString(playerPtr) +
+                                                          " 48 3B 1A 5A 5B 75 01 C3 80 B9 18 04 00 00 00");
+            game.WriteBytes(newApplyDamagePtr, newApplyDamageCode);
+
+            jumpOffset = applyDamagePtr.ToInt64() - newApplyDamagePtr.ToInt64() - newApplyDamageCode.Length + 2;
+            jumpCode = StringToByteArray("E9 " + IntPtrToASMString(new IntPtr(jumpOffset), 4));
+            game.WriteBytes(newApplyDamagePtr + newApplyDamageCode.Length, jumpCode);
+
+            jumpOffset = newApplyDamagePtr.ToInt64() - applyDamagePtr.ToInt64() - 0x5;
+            jumpCode = StringToByteArray("E9 " + IntPtrToASMString(new IntPtr((uint)jumpOffset), 4) + " 66 90");
+            game.WriteBytes(applyDamagePtr, jumpCode);
+
+
+            SigScanTarget applyWaterDamageSig = new SigScanTarget("?? ?? ?? ?? ?? 57 48 83 EC ?? 80 B9 ?? ?? ?? ?? 00 41 0F B6 F8 0F 29");
+            IntPtr applyWaterDamagePtr = scanner.Scan(applyWaterDamageSig);
+            if (applyWaterDamagePtr == IntPtr.Zero)
+            {
+                throw new Exception("Can't Find GetPlayer Signature");
+            }
+
+            _ = new DeepPointer(0x600).DerefOffsets(game, out IntPtr newApplyWaterDamagePtr);
+            jumpOffset = godModePtr.ToInt64() - newApplyWaterDamagePtr.ToInt64() - 0x9;
+            byte[] newApplyWaterDamageCode = StringToByteArray("53 52 48 8B 1D " + IntPtrToASMString(new IntPtr(jumpOffset), 4) +
+                                                               " 48 83 FB 01 75 11 48 8B 59 70 48 BA " + IntPtrToASMString(playerPtr) +
+                                                               " 48 3B 1A 5A 5B 75 01 C3 48 89 5C 24 08");
+            game.WriteBytes(newApplyWaterDamagePtr, newApplyWaterDamageCode);
+
+            jumpOffset = applyWaterDamagePtr.ToInt64() - newApplyWaterDamagePtr.ToInt64() - newApplyWaterDamageCode.Length;
+            jumpCode = StringToByteArray("E9 " + IntPtrToASMString(new IntPtr(jumpOffset), 4));
+            game.WriteBytes(newApplyWaterDamagePtr + newApplyWaterDamageCode.Length, jumpCode);
+
+            jumpOffset = newApplyWaterDamagePtr.ToInt64() - applyWaterDamagePtr.ToInt64() - 0x5;
+            jumpCode = StringToByteArray("E9 " + IntPtrToASMString(new IntPtr((uint)jumpOffset), 4));
+            game.WriteBytes(applyWaterDamagePtr, jumpCode);
+
+
+            SigScanTarget consumeAmmoSig = new SigScanTarget("?? ?? ?? ?? ?? 48 C7 44 24 ?? FE FF FF FF 48 89 5C 24 ?? 48 89 74 24 ?? 48 8B D9 44 8B 81");
+            IntPtr consumeAmmoPtr = scanner.Scan(consumeAmmoSig);
+            if (consumeAmmoPtr == IntPtr.Zero)
+            {
+                throw new Exception("Can't Find ConsumeAmmo Signature");
+            }
+
+            _ = new DeepPointer(0x650).DerefOffsets(game, out IntPtr newConsumeAmmoPtr);
+            jumpOffset = ammoInfPtr.ToInt64() - newConsumeAmmoPtr.ToInt64() - 0x9;
+
+            byte[] newConsumeAmmoCode = StringToByteArray("53 52 48 8B 1D " + IntPtrToASMString(new IntPtr(jumpOffset), 4) +
+                                                  " 48 83 FB 01 75 18 48 8B 99 08 01 00 00 48 8B 5B 70 48 BA " + IntPtrToASMString(playerPtr) +
+                                                  " 48 3B 1A 5A 5B 75 01 C3 40 57 48 83 EC 40");
+            game.WriteBytes(newConsumeAmmoPtr, newConsumeAmmoCode);
+
+            jumpOffset = consumeAmmoPtr.ToInt64() - newConsumeAmmoPtr.ToInt64() - newConsumeAmmoCode.Length;
+            jumpCode = StringToByteArray("E9 " + IntPtrToASMString(new IntPtr(jumpOffset), 4));
+            game.WriteBytes(newConsumeAmmoPtr + newConsumeAmmoCode.Length, jumpCode);
+
+            jumpOffset = newConsumeAmmoPtr.ToInt64() - consumeAmmoPtr.ToInt64() - 0x5;
+            jumpCode = StringToByteArray("E9 " + IntPtrToASMString(new IntPtr((uint)jumpOffset), 4) + " 90");
+            game.WriteBytes(consumeAmmoPtr, jumpCode);
+
+            game.WriteValue<byte>(statusPtr, 0x1);
+            return true;
         }
 
-        private void SetGameSpeed()
+
+        byte[] StringToByteArray(string input)
         {
-            Debug.WriteLine("{0} want {1}", gameSpeed, prefGameSpeed);
-            if ((gameSpeed == 1.0f || gameSpeed == 2.0f || gameSpeed == 4.0f || gameSpeed == 0.5f) && gameSpeed != prefGameSpeed)
-                game.WriteBytes(gameSpeedPtr, BitConverter.GetBytes(prefGameSpeed));
+            string[] byteStringArray = input.Split(' ');
+            byte[] output = new byte[byteStringArray.Length];
+            for (int i = 0; i < byteStringArray.Length; i++)
+            {
+                output[i] = Byte.Parse(byteStringArray[i], System.Globalization.NumberStyles.HexNumber);
+            }
+            return output;
         }
+
+        string IntPtrToASMString(IntPtr input, int length = 8)
+        {
+            string ptrString = input.ToString("X16");
+            string output = "";
+            for (int i = 0; i < length; i++)
+            {
+                output += ptrString[14 - i * 2];
+                output += ptrString[15 - i * 2];
+                if (i != length - 1)
+                    output += " ";
+            }
+            return output;
+        }
+
     }
 }

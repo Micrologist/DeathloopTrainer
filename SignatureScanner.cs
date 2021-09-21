@@ -10,7 +10,7 @@ using System.Linq;
 
 // Note: Please be careful when modifying this because it could break existing components!
 
-namespace VeninethTrainer
+namespace DeathloopTrainer
 {
     public class SignatureScanner
     {

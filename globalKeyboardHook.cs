@@ -4,7 +4,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace VeninethTrainer
+namespace DeathloopTrainer
 {
 	/// <summary>
 	/// A class that manages a global low level keyboard hook

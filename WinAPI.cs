@@ -4,7 +4,7 @@ using System.Text;
 
 #pragma warning disable 1591
 
-namespace VeninethTrainer
+namespace DeathloopTrainer
 {
     using SizeT = UIntPtr;
 
