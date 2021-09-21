@@ -316,7 +316,7 @@ namespace DeathloopTrainer
 			_ = new DeepPointer(0x500).DerefOffsets(game, out IntPtr newGetPlayerPtr);
 			_ = new DeepPointer(0x800).DerefOffsets(game, out IntPtr playerPtr);
 			byte[] newGetPlayerCode = StringToByteArray("48 A3 " + IntPtrToASMString(playerPtr)
-														+ " 48 8B 74 24 40");
+				+ " 48 8B 74 24 40");
 
 			game.WriteBytes(newGetPlayerPtr, newGetPlayerCode);
 
@@ -340,8 +340,8 @@ namespace DeathloopTrainer
 			_ = new DeepPointer(0x550).DerefOffsets(game, out IntPtr newApplyDamagePtr);
 			jumpOffset = godModePtr.ToInt64() - newApplyDamagePtr.ToInt64() - 0x9;
 			byte[] newApplyDamageCode = StringToByteArray("53 52 48 8B 1D " + IntPtrToASMString(new IntPtr(jumpOffset), 4) +
-														  " 48 83 FB 01 75 11 48 8B 59 70 48 BA " + IntPtrToASMString(playerPtr) +
-														  " 48 3B 1A 5A 5B 75 01 C3 80 B9 18 04 00 00 00");
+				" 48 83 FB 01 75 11 48 8B 59 70 48 BA " + IntPtrToASMString(playerPtr) +
+				" 48 3B 1A 5A 5B 75 01 C3 80 B9 18 04 00 00 00");
 			game.WriteBytes(newApplyDamagePtr, newApplyDamageCode);
 
 			jumpOffset = applyDamagePtr.ToInt64() - newApplyDamagePtr.ToInt64() - newApplyDamageCode.Length + 2;
@@ -363,8 +363,8 @@ namespace DeathloopTrainer
 			_ = new DeepPointer(0x600).DerefOffsets(game, out IntPtr newApplyWaterDamagePtr);
 			jumpOffset = godModePtr.ToInt64() - newApplyWaterDamagePtr.ToInt64() - 0x9;
 			byte[] newApplyWaterDamageCode = StringToByteArray("53 52 48 8B 1D " + IntPtrToASMString(new IntPtr(jumpOffset), 4) +
-															   " 48 83 FB 01 75 11 48 8B 59 70 48 BA " + IntPtrToASMString(playerPtr) +
-															   " 48 3B 1A 5A 5B 75 01 C3 48 89 5C 24 08");
+				" 48 83 FB 01 75 11 48 8B 59 70 48 BA " + IntPtrToASMString(playerPtr) +
+				" 48 3B 1A 5A 5B 75 01 C3 48 89 5C 24 08");
 			game.WriteBytes(newApplyWaterDamagePtr, newApplyWaterDamageCode);
 
 			jumpOffset = applyWaterDamagePtr.ToInt64() - newApplyWaterDamagePtr.ToInt64() - newApplyWaterDamageCode.Length;
@@ -387,8 +387,8 @@ namespace DeathloopTrainer
 			jumpOffset = ammoInfPtr.ToInt64() - newConsumeAmmoPtr.ToInt64() - 0x9;
 
 			byte[] newConsumeAmmoCode = StringToByteArray("53 52 48 8B 1D " + IntPtrToASMString(new IntPtr(jumpOffset), 4) +
-												  " 48 83 FB 01 75 18 48 8B 99 08 01 00 00 48 8B 5B 70 48 BA " + IntPtrToASMString(playerPtr) +
-												  " 48 3B 1A 5A 5B 75 01 C3 40 57 48 83 EC 40");
+				" 48 83 FB 01 75 18 48 8B 99 08 01 00 00 48 8B 5B 70 48 BA " + IntPtrToASMString(playerPtr) +
+				" 48 3B 1A 5A 5B 75 01 C3 40 57 48 83 EC 40");
 			game.WriteBytes(newConsumeAmmoPtr, newConsumeAmmoCode);
 
 			jumpOffset = consumeAmmoPtr.ToInt64() - newConsumeAmmoPtr.ToInt64() - newConsumeAmmoCode.Length;
