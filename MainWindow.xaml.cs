@@ -77,6 +77,7 @@ namespace DeathloopTrainer
 			kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F1);
 			kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F2);
 			kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F3);
+			kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F4);
 			kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F5);
 			kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F6);
 
