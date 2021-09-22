@@ -17,15 +17,16 @@ namespace DeathloopTrainer
 		public bool hooked = false;
 
 		DeepPointer characterDP = new DeepPointer(0x02D5F688, 0x8, 0x8, 0x98, 0xA0, 0x1F0, 0x0);
+		DeepPointer rotationDP = new DeepPointer(0x810, 0x0);
 		DeepPointer statusDP = new DeepPointer(0x900);
 
-		IntPtr xVelPtr, yVelPtr, zVelPtr, xPosPtr, yPosPtr, zPosPtr, godPtr, ammoPtr;
+		IntPtr xVelPtr, yVelPtr, zVelPtr, xPosPtr, yPosPtr, zPosPtr, godPtr, ammoPtr, rotAPtr, rotBPtr;
 
-		bool god, ammo, teleFw = false;
+		bool god, ammo, teleFw, teleUp = false;
 		float[] storedPos = new float[5] { 0f, 0f, 0f, 0f, 0f };
 
 
-		float xVel, yVel, zVel, xPos, yPos, zPos;
+		float xVel, yVel, zVel, xPos, yPos, zPos, rotA, rotB;
 
 		private void teleportFwBtn_Click(object sender, RoutedEventArgs e)
 		{
@@ -43,6 +44,17 @@ namespace DeathloopTrainer
 		{
 			e.Handled = true;
 			ToggleAmmo();
+		}
+
+		private void Button_Click(object sender, RoutedEventArgs e)
+		{
+			TestFunction();
+		}
+
+		private void teleUpBtn_Click(object sender, RoutedEventArgs e)
+		{
+			e.Handled = true;
+			TeleportUpward();
 		}
 
 		private void saveBtn_Click(object sender, RoutedEventArgs e)
@@ -96,7 +108,6 @@ namespace DeathloopTrainer
 				return;
 			}
 
-			Debug.WriteLine(game.Modules.Count);
 
 			game.ReadValue<float>(xPosPtr, out xPos);
 			game.ReadValue<float>(yPosPtr, out yPos);
@@ -106,6 +117,9 @@ namespace DeathloopTrainer
 			game.ReadValue<float>(yVelPtr, out yVel);
 			game.ReadValue<float>(zVelPtr, out zVel);
 			double hVel = (Math.Sqrt(xVel * xVel + yVel * yVel));
+
+			game.ReadValue<float>(rotAPtr, out rotA);
+			game.ReadValue<float>(rotBPtr, out rotB);
 
 			game.ReadValue<bool>(godPtr, out god);
 			game.ReadValue<bool>(ammoPtr, out ammo);
@@ -120,6 +134,10 @@ namespace DeathloopTrainer
 			if (teleFw)
 			{
 				TeleportForward();
+			}
+			if (teleUp)
+			{
+				TeleportUpward();
 			}
 		}
 
@@ -179,6 +197,10 @@ namespace DeathloopTrainer
 			godPtr = statusBasePtr + 0x10;
 			ammoPtr = statusBasePtr + 0x20;
 
+			rotationDP.DerefOffsets(game, out basePtr);
+			rotAPtr = basePtr + 0x1B4;
+			rotBPtr = basePtr + 0x1B8;
+
 		}
 
 		private void InputKeyDown(object sender, KeyEventArgs e)
@@ -189,9 +211,12 @@ namespace DeathloopTrainer
 					teleFw = true;
 					break;
 				case Keys.F2:
-					ToggleGod();
+					teleUp = true;
 					break;
 				case Keys.F3:
+					ToggleGod();
+					break;
+				case Keys.F4:
 					ToggleAmmo();
 					break;
 				case Keys.F5:
@@ -227,9 +252,7 @@ namespace DeathloopTrainer
 			if (!hooked)
 				return;
 
-			float a = new DeepPointer(0x3283134).Deref<float>(game);
-			float b = new DeepPointer(0x3283138).Deref<float>(game);
-			System.Windows.Media.Media3D.Quaternion q = new System.Windows.Media.Media3D.Quaternion(0, b, 0, a);
+			System.Windows.Media.Media3D.Quaternion q = new System.Windows.Media.Media3D.Quaternion(0, rotB, 0, rotA);
 			float angle = ((float)((q.Angle / 2) * -q.Axis.Y));
 			angle = (float)(angle / 180 * Math.PI);
 
@@ -241,6 +264,22 @@ namespace DeathloopTrainer
 
 			game.WriteBytes(xPosPtr, BitConverter.GetBytes((float)(xPos + (float)(x * scale * 1))));
 			game.WriteBytes(yPosPtr, BitConverter.GetBytes((float)(yPos + (float)(y * scale * 1))));
+		}
+
+		private void TeleportUpward()
+		{
+			if (!hooked)
+				return;
+
+
+			float scale = 1f;
+			if(zVel < 0.0f)
+			{
+				scale = Math.Abs(zVel) / 10;
+			}
+
+			game.WriteBytes(zPosPtr, BitConverter.GetBytes((float)(zPos + (float)(scale * 1))));
+
 		}
 
 		private void Teleport()
@@ -284,6 +323,9 @@ namespace DeathloopTrainer
 			{
 				case Keys.F1:
 					teleFw = false;
+					break;
+				case Keys.F2:
+					teleUp = false;
 					break;
 			}
 			e.Handled = true;
@@ -399,6 +441,12 @@ namespace DeathloopTrainer
 			jumpCode = StringToByteArray("E9 " + IntPtrToASMString(new IntPtr((uint)jumpOffset), 4) + " 90");
 			game.WriteBytes(consumeAmmoPtr, jumpCode);
 
+			SigScanTarget rotationTarget = new SigScanTarget("48 89 5D 28 48 8B D3 48 8D 0D ?? ?? ?? ??");
+			IntPtr ptr = scanner.Scan(rotationTarget) + 0xA;
+			ptr += game.ReadValue<int>(ptr) + 0x4;
+			_ = new DeepPointer(0x810).DerefOffsets(game, out IntPtr newRotPtr);
+			game.WriteBytes(newRotPtr, BitConverter.GetBytes(ptr.ToInt64()));
+
 			game.WriteValue<byte>(statusPtr, 0x1);
 			return true;
 		}
@@ -410,7 +458,7 @@ namespace DeathloopTrainer
 			byte[] output = new byte[byteStringArray.Length];
 			for (int i = 0; i < byteStringArray.Length; i++)
 			{
-				output[i] = Byte.Parse(byteStringArray[i], System.Globalization.NumberStyles.HexNumber);
+				output[i] = byte.Parse(byteStringArray[i], System.Globalization.NumberStyles.HexNumber);
 			}
 			return output;
 		}
@@ -427,6 +475,24 @@ namespace DeathloopTrainer
 					output += " ";
 			}
 			return output;
+		}
+
+
+		void TestFunction()
+		{
+			SignatureScanner scanner = new SignatureScanner(game, game.MainModule.BaseAddress, game.MainModule.ModuleMemorySize);
+			/*
+			Deathloop.exe+C0CDF5 - 42 89 04 37           - mov [rdi+r14],eax
+			Deathloop.exe+C0CDF9 - 48 83 C3 20           - add rbx,20
+			Deathloop.exe+C0CDFD - 48 89 5D 28           - mov [rbp+28],rbx
+			Deathloop.exe+C0CE01 - 48 8B D3              - mov rdx,rbx
+			Deathloop.exe+C0CE04 - 48 8D 0D A5616702     - lea rcx,[Deathloop.exe+3282FB0] <---
+			*/
+			SigScanTarget rotationTarget = new SigScanTarget("48 89 5D 28 48 8B D3 48 8D 0D ?? ?? ?? ??");
+			IntPtr ptr = scanner.Scan(rotationTarget) + 0xA;
+			ptr += game.ReadValue<int>(ptr) + 0x4;
+			_ = new DeepPointer(0x810).DerefOffsets(game, out IntPtr newRotPtr);
+			game.WriteBytes(newRotPtr, BitConverter.GetBytes(ptr.ToInt64()));
 		}
 
 	}

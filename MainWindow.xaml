@@ -15,10 +15,11 @@
 		<Label x:Name="positionLabel" Content="Position" HorizontalAlignment="Left" Height="35" Margin="10,3,0,0" VerticalAlignment="Top" Width="196" FontSize="20" Foreground="White" FontWeight="Bold"/>
 		<TextBlock x:Name="positionLabelBlock" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="17,41,0,0" Height="85" Width="61" FontSize="20" Foreground="White" TextAlignment="Left"><Run Text="x"/><LineBreak/><Run Text="y"/><LineBreak/><Run Text="z"/></TextBlock>
 		<TextBlock x:Name="positionBlock" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="78,41,0,0" Height="85" Width="116" FontSize="20" Foreground="White" TextAlignment="Right"/>
-		<Button x:Name="godModeBtn" Content="[F2] God Mode" HorizontalAlignment="Left" Height="28" Margin="218,47,0,0" VerticalAlignment="Top" Width="200" FontSize="16" Background="#FF666666" Foreground="White" BorderBrush="#FF040404" Click="godModeBtn_Click" />
-		<Label x:Name="godModeLabel" Content="OFF" HorizontalAlignment="Left" Height="35" Margin="423,46,0,0" VerticalAlignment="Top" Width="46" FontSize="16" FontWeight="Bold" Foreground="Red" RenderTransformOrigin="0.571,-1.489" />
-		<Button x:Name="ammoBtn" Content="[F3] Unlimited Ammo" HorizontalAlignment="Left" Height="28" Margin="218,82,0,0" VerticalAlignment="Top" Width="200" FontSize="16" Background="#FF666666" Foreground="White" BorderBrush="#FF040404" Click="ammoBtn_Click"  />
-		<Label x:Name="ammoLabel" Content="OFF" HorizontalAlignment="Left" Height="35" Margin="423,81,0,0" VerticalAlignment="Top" Width="46" FontSize="16" FontWeight="Bold" Foreground="Red" RenderTransformOrigin="0.571,-1.489" />
+		<Button x:Name="godModeBtn" Content="[F3] God Mode" HorizontalAlignment="Left" Height="28" Margin="218,78,0,0" VerticalAlignment="Top" Width="200" FontSize="16" Background="#FF666666" Foreground="White" BorderBrush="#FF040404" Click="godModeBtn_Click" />
+		<Label x:Name="godModeLabel" Content="OFF" HorizontalAlignment="Left" Height="35" Margin="423,77,0,0" VerticalAlignment="Top" Width="46" FontSize="16" FontWeight="Bold" Foreground="Red" RenderTransformOrigin="0.571,-1.489" />
+		<Button x:Name="ammoBtn" Content="[F4] Infinite Ammo" HorizontalAlignment="Left" Height="28" Margin="218,111,0,0" VerticalAlignment="Top" Width="200" FontSize="16" Background="#FF666666" Foreground="White" BorderBrush="#FF040404" Click="ammoBtn_Click"  />
+		<Label x:Name="ammoLabel" Content="OFF" HorizontalAlignment="Left" Height="35" Margin="423,110,0,0" VerticalAlignment="Top" Width="46" FontSize="16" FontWeight="Bold" Foreground="Red" RenderTransformOrigin="0.571,-1.489" />
+		<Button x:Name="teleUpBtn" Content="[F2] Teleport Up" HorizontalAlignment="Left" Height="28" Margin="218,45,0,0" VerticalAlignment="Top" Width="200" FontSize="16" Background="#FF666666" Foreground="White" BorderBrush="#FF040404" Click="teleUpBtn_Click" />
 
 	</Grid>
 
