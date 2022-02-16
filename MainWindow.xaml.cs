@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Forms;
@@ -19,12 +20,16 @@ namespace DeathloopTrainer
 		DeepPointer characterDP = new DeepPointer(0x02D5F688, 0x8, 0x8, 0x98, 0xA0, 0x1F0, 0x0);
 		DeepPointer rotationDP = new DeepPointer(0x810, 0x0);
 		DeepPointer statusDP = new DeepPointer(0x900);
+		DeepPointer gameSpeedDP = new DeepPointer("timewizardry.dll", 0x63F8);
 
-		IntPtr xVelPtr, yVelPtr, zVelPtr, xPosPtr, yPosPtr, zPosPtr, godPtr, ammoPtr, rotAPtr, rotBPtr;
+		IntPtr xVelPtr, yVelPtr, zVelPtr, xPosPtr, yPosPtr, zPosPtr, godPtr, ammoPtr, rotAPtr, rotBPtr, gameSpeedPtr;
 
 		bool god, ammo, teleFw, teleUp = false;
 		float[] storedPos = new float[5] { 0f, 0f, 0f, 0f, 0f };
 
+		double gameSpeed, prefGameSpeed = 1.0;
+
+		bool speedhackActivated = false;
 
 		float xVel, yVel, zVel, xPos, yPos, zPos, rotA, rotB;
 
@@ -57,10 +62,23 @@ namespace DeathloopTrainer
 			TeleportUpward();
 		}
 
+		private void activateGameSpeedBtn_Click(object sender, RoutedEventArgs e)
+		{
+			e.Handled = true;
+			ActivateSpeedhack();
+		}
+
+
 		private void saveBtn_Click(object sender, RoutedEventArgs e)
 		{
 			e.Handled = true;
 			StorePosition();
+		}
+
+		private void gameSpeedBtn_Click(object sender, RoutedEventArgs e)
+		{
+			e.Handled = true;
+			SwitchPrefSpeed();
 		}
 
 		private void teleBtn_Click(object sender, RoutedEventArgs e)
@@ -80,6 +98,8 @@ namespace DeathloopTrainer
 			kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F4);
 			kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F5);
 			kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F6);
+			kbHook.HookedKeys.Add(System.Windows.Forms.Keys.F7);
+
 
 			updateTimer = new Timer
 			{
@@ -108,7 +128,6 @@ namespace DeathloopTrainer
 			{
 				return;
 			}
-
 
 			game.ReadValue<float>(xPosPtr, out xPos);
 			game.ReadValue<float>(yPosPtr, out yPos);
@@ -139,6 +158,63 @@ namespace DeathloopTrainer
 			if (teleUp)
 			{
 				TeleportUpward();
+			}
+
+			
+
+			if(speedhackActivated)
+			{
+				activateGameSpeedBtn.Visibility = Visibility.Hidden;
+				gameSpeedBtn.Visibility = Visibility.Visible;
+				gameSpeedLabel.Visibility = Visibility.Visible;
+
+				game.ReadValue<double>(gameSpeedPtr, out gameSpeed);
+				if(gameSpeed != prefGameSpeed)
+				{
+					game.WriteBytes(gameSpeedPtr, BitConverter.GetBytes(prefGameSpeed));
+				}
+
+				gameSpeedLabel.Content = prefGameSpeed.ToString("0.0") + "x";
+			}
+			else
+			{
+				activateGameSpeedBtn.Visibility = Visibility.Visible;
+				gameSpeedBtn.Visibility = Visibility.Hidden;
+				gameSpeedLabel.Visibility = Visibility.Hidden;
+			}
+		}
+
+		private bool CheckSpeedhack()
+		{
+			foreach (ProcessModule module in game.Modules)
+			{
+				if (module.ModuleName == "timewizardry.dll")
+					return true;
+			}
+			return false;
+		}
+		private void SwitchPrefSpeed()
+		{
+			switch (prefGameSpeed)
+			{
+				case 1.0f:
+					prefGameSpeed = 2.0;
+					break;
+				case 2.0f:
+					prefGameSpeed = 4.0;
+					break;
+				case 4.0f:
+					prefGameSpeed = 8.0;
+					break;
+				case 8.0f:
+					prefGameSpeed = 0.5;
+					break;
+				case 0.5f:
+					prefGameSpeed = 1.0;
+					break;
+				default:
+					prefGameSpeed = 1.0;
+					break;
 			}
 		}
 
@@ -186,6 +262,7 @@ namespace DeathloopTrainer
 
 		private void DerefPointers()
 		{
+
 			characterDP.DerefOffsets(game, out IntPtr basePtr);
 			xPosPtr = basePtr + 0x80;
 			yPosPtr = basePtr + 0x84;
@@ -201,6 +278,16 @@ namespace DeathloopTrainer
 			rotationDP.DerefOffsets(game, out basePtr);
 			rotAPtr = basePtr + 0x1B4;
 			rotBPtr = basePtr + 0x1B8;
+
+			speedhackActivated = CheckSpeedhack();
+
+
+			gameSpeedDP.DerefOffsets(game, out gameSpeedPtr);
+			speedhackActivated = gameSpeedPtr != IntPtr.Zero;
+			if (speedhackActivated)
+			{
+				WinAPI.VirtualProtectEx(game.Handle, gameSpeedPtr, (UIntPtr)0x8, MemPageProtect.PAGE_READWRITE, out _);
+			}
 
 		}
 
@@ -225,6 +312,12 @@ namespace DeathloopTrainer
 					break;
 				case Keys.F6:
 					Teleport();
+					break;
+				case Keys.F7:
+					if (speedhackActivated)
+						SwitchPrefSpeed();
+					else
+						ActivateSpeedhack();
 					break;
 				default:
 					break;
@@ -494,6 +587,27 @@ namespace DeathloopTrainer
 			ptr += game.ReadValue<int>(ptr) + 0x4;
 			_ = new DeepPointer(0x810).DerefOffsets(game, out IntPtr newRotPtr);
 			game.WriteBytes(newRotPtr, BitConverter.GetBytes(ptr.ToInt64()));
+		}
+
+
+		private void ActivateSpeedhack()
+		{
+			if (!hooked || speedhackActivated) return;
+
+			
+			string dllPath = System.Windows.Forms.Application.StartupPath + "\\timewizardry.dll";
+
+			if (!File.Exists(dllPath))
+			{
+				System.Windows.MessageBox.Show("Could not find \"timewizardry.dll\".", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+				return;
+			}
+
+			bool result = Injector.InjectDLL(dllPath, game);
+			if(!result)
+			{
+				System.Windows.MessageBox.Show("Injection Failed!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+			}
 		}
 
 	}
